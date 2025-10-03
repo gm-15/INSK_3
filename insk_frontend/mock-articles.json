@@ -1,0 +1,6 @@
+[
+  { "id": 1, "title": "Telco 관련 뉴스", "summary": "통신 분야의 혁신적인 기술에 대한 기사입니다.", "category": "Telco" },
+  { "id": 2, "title": "LLM 모델 발표", "summary": "새로운 거대 언어 모델이 공개되었습니다.", "category": "LLM" },
+  { "id": 3, "title": "AI INFRA 구축 동향", "summary": "데이터 센터와 클라우드 인프라에 대한 소식입니다.", "category": "INFRA" },
+  { "id": 4, "title": "또 다른 Telco 뉴스", "summary": "5G와 6G 기술의 미래를 조망합니다.", "category": "Telco" }
+]
