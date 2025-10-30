@@ -43,6 +43,9 @@ dependencies {
 	implementation 'io.jsonwebtoken:jjwt-jackson:0.12.6'
 	// 웹 스크래핑(HTML 파싱)을 위한 Jsoup 라이브러리 추가
 	implementation 'org.jsoup:jsoup:1.17.2'
+
+	// 4주차: Redis 캐싱을 위한 의존성 추가
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 }
 
 

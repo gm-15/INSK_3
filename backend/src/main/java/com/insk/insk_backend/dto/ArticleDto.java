@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.io.Serializable; // [ ⭐️ 1. 이 import 문 추가 ⭐️ ]
 import java.time.LocalDateTime;
 
 public class ArticleDto {
@@ -19,31 +20,27 @@ public class ArticleDto {
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
-    public static class Response {
+    // [ ⭐️ 2. "implements Serializable" 추가 ⭐️ ]
+    public static class Response implements Serializable {
+
         private Long articleId;
         private String title;
-        private String summary; // AI 요약
+        private String summary;
         private String category;
+
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
         private LocalDateTime publishedAt;
 
-
-
-        /**
-         * [ ⭐️⭐️⭐️ 이 부분이 수정되었습니다 ⭐️⭐️⭐️ ]
-         * ArticleAnalysis가 null일 경우를 대비하여 null-safe하게 수정
-         */
+        // (from 메소드는 이전과 동일)
         public static Response from(Article article, ArticleAnalysis analysis) {
 
             // 분석 결과가 아직 없는 경우 (analysis가 null일 때)
             if (analysis == null) {
                 return Response.builder()
-                        .articleId(article.getArticleId()) // Article.java에 getArticleId() 있음
+                        .articleId(article.getArticleId())
                         .title(article.getTitle())
                         .summary("분석 중입니다...")
-                        // [ ⭐️⭐️⭐️ 핵심 수정 ⭐️⭐️⭐️ ]
-                        // article.getCategory() -> "분류 중..."으로 변경
-                        .category("분류 중...")
+                        .category("분류 중...") // Article에 category가 없으므로
                         .publishedAt(article.getPublishedAt())
                         .build();
             }
@@ -66,18 +63,21 @@ public class ArticleDto {
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
-    public static class DetailResponse {
+    // [ ⭐️ 3. "implements Serializable" 추가 ⭐️ ]
+    public static class DetailResponse implements Serializable {
+
         private Long articleId;
         private String title;
         private String originalUrl;
-        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
-        private LocalDateTime publishedAt;
         private String summary;
         private String insight;
         private String category;
-        private String tags; // JSON 문자열 형태
+        private String tags;
 
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
+        private LocalDateTime publishedAt;
 
+        // (from 메소드는 이전과 동일)
         public static DetailResponse from(Article article, ArticleAnalysis analysis) {
             return DetailResponse.builder()
                     .articleId(article.getArticleId())

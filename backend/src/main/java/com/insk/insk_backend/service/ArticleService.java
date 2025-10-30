@@ -1,5 +1,8 @@
 package com.insk.insk_backend.service;
 
+// [ ⭐️ 1. 이 import 문 추가 ⭐️ ]
+import org.springframework.cache.annotation.Cacheable;
+
 import com.insk.insk_backend.domain.Article;
 import com.insk.insk_backend.domain.ArticleAnalysis;
 import com.insk.insk_backend.dto.ArticleDto;
@@ -21,9 +24,12 @@ public class ArticleService {
     private final ArticleAnalysisRepository articleAnalysisRepository;
 
     /**
-     * [ ⭐️⭐️⭐️ 최종 수정본 ⭐️⭐️⭐️ ]
-     * 뉴스 목록 조회 로직 (올바른 페이징 및 필터링)
+     * [ ⭐️ 2. 이 어노테이션 추가 ⭐️ ]
+     * "articles" 캐시에 이 메소드의 결과를 저장합니다.
+     * (동일한 category/pageable 요청은 DB 조회 없이 캐시에서 즉시 반환됩니다.)
      */
+    @Cacheable("articles")
+    @Transactional(readOnly = true) // @Cacheable 사용 시 명시적으로 다시 붙여주는 것이 좋습니다.
     public Page<ArticleDto.Response> getArticles(String category, Pageable pageable) {
 
         if (category == null || category.isEmpty()) {
@@ -38,9 +44,6 @@ public class ArticleService {
             });
         } else {
             // 2. 카테고리 필터가 있으면 -> ArticleAnalysisRepository에서 페이징
-            // [ ⭐️⭐️⭐️ 핵심 수정 ⭐️⭐️⭐️ ]
-            // articleRepository.findByCategory(category, pageable);
-            // -> articleAnalysisRepository.findByCategory(category, pageable);
             Page<ArticleAnalysis> analysesPage = articleAnalysisRepository.findByCategory(category, pageable);
 
             // Page<ArticleAnalysis>를 Page<ArticleDto.Response>로 변환
@@ -53,8 +56,11 @@ public class ArticleService {
     }
 
     /**
-     * 뉴스 상세 조회 로직 (기존과 동일)
+     * [ ⭐️ 3. 이 어노테이션 추가 ⭐️ ]
+     * "articleDetails" 캐시에 articleId를 키(key)로 사용하여 결과를 저장합니다.
      */
+    @Cacheable(value = "articleDetails", key = "#articleId")
+    @Transactional(readOnly = true)
     public ArticleDto.DetailResponse getArticleById(Long articleId) {
         Article article = articleRepository.findById(articleId)
                 .orElseThrow(() -> new EntityNotFoundException("기사를 찾을 수 없습니다: " + articleId));
