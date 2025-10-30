@@ -5,16 +5,16 @@ FROM eclipse-temurin:21-jdk-jammy AS build_stage
 
 WORKDIR /app
 
-# 1. 빌드에 필요한 모든 파일 복사
-COPY gradlew .
-COPY gradle ./gradle
-COPY build.gradle .
-COPY settings.gradle .
+# 1. [수정] 빌드에 필요한 모든 파일을 'backend/' 경로에서 복사합니다.
+COPY backend/gradlew .
+COPY backend/gradle ./gradle
+COPY backend/build.gradle .
+COPY backend/settings.gradle .
 
-# 2. [수정] 소스 코드를 *먼저* 복사합니다.
-COPY src ./src
+# 2. [수정] 소스 코드를 'backend/src'에서 복사합니다.
+COPY backend/src ./src
 
-# 3. [수정] 빌드 명령은 소스 복사 *후*, *한 번만* 실행합니다.
+# 3. 빌드 명령 실행
 RUN ./gradlew build --no-daemon -x test
 
 # -------------------------------------------------------------
@@ -24,7 +24,7 @@ FROM eclipse-temurin:21-jre-jammy
 
 WORKDIR /app
 
-# 4. 올바른 jar 파일 이름을 복사합니다.
+# 4. [수정] 빌드된 .jar 파일의 경로를 'backend/' 기준으로 수정합니다.
 COPY --from=build_stage /app/build/libs/insk-backend-0.0.1-SNAPSHOT.jar app.jar
 
 ENTRYPOINT ["java", "-jar", "app.jar"]
