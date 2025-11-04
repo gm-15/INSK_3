@@ -8,7 +8,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.io.Serializable; // [ ⭐️ 1. 이 import 문 추가 ⭐️ ]
+import java.io.Serializable; // 1. Serializable 임포트 확인
 import java.time.LocalDateTime;
 
 public class ArticleDto {
@@ -20,7 +20,7 @@ public class ArticleDto {
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
-    // [ ⭐️ 2. "implements Serializable" 추가 ⭐️ ]
+    // 2. "implements Serializable" 구현 확인
     public static class Response implements Serializable {
 
         private Long articleId;
@@ -31,6 +31,7 @@ public class ArticleDto {
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
         private LocalDateTime publishedAt;
 
+        // from 메소드
         public static Response from(Article article, ArticleAnalysis analysis) {
             if (analysis == null) {
                 return Response.builder()
@@ -58,7 +59,7 @@ public class ArticleDto {
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
-    // [ ⭐️ 3. "implements Serializable" 추가 ⭐️ ]
+    // 3. "implements Serializable" 구현 확인
     public static class DetailResponse implements Serializable {
 
         private Long articleId;
@@ -72,6 +73,7 @@ public class ArticleDto {
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
         private LocalDateTime publishedAt;
 
+        // from 메소드
         public static DetailResponse from(Article article, ArticleAnalysis analysis) {
             return DetailResponse.builder()
                     .articleId(article.getArticleId())
