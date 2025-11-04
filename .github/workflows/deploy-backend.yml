@@ -1,16 +1,15 @@
 # 워크플로우 이름
 name: Deploy Backend to AWS ECR and Elastic Beanstalk
 
-# 1. 트리거 (동일)
+# 1. 트리거
 on:
   push:
     branches: [ "main" ]
 
-# 2. 환경 변수 (동일)
+# 2. 환경 변수
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
   ECR_REPOSITORY: insk-backend
-  # [ ⭐️ 1. 추가 ⭐️ ] EB 애플리케이션 및 환경 이름
   EB_APPLICATION_NAME: insk-backend-app 
   EB_ENVIRONMENT_NAME: Insk-env
 
@@ -20,11 +19,11 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      # 1. 소스 코드 체크아웃 (동일)
+      # 1. 소스 코드 체크아웃
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. AWS 자격 증명 (동일)
+      # 2. AWS 자격 증명
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -32,39 +31,36 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      # 3. Amazon ECR 로그인 (동일)
+      # 3. Amazon ECR 로그인
       - name: Log in to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # [ ⭐️ 2. 수정 ⭐️ ] :latest 대신 고유한 커밋 ID로 이미지 태그 지정
+      # 4. GitHub 커밋 SHA 태그 지정
       - name: Set image tag (Git commit SHA)
         id: image
         run: echo "TAG=${{ github.sha }}" >> $GITHUB_OUTPUT
 
-      # 4. Docker 이미지 빌드 및 태그 지정 (수정됨)
+      # 5. Docker 이미지 빌드
       - name: Build and tag Docker image
         run: |
           docker build -t ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.image.outputs.TAG }} -f backend/Dockerfile .
-          
-      # 5. Docker 이미지를 ECR로 푸시 (수정됨)
+
+      # 6. Docker 이미지 푸시
       - name: Push Docker image to Amazon ECR
         run: |
           docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.image.outputs.TAG }}
 
-      # --- [ ⭐️⭐️⭐️ 3. CD 단계 (신규 추가) ⭐️⭐️⭐️ ] ---
-      
-      # 6. Dockerrun.aws.json 파일에 고유 태그(<TAG>) 삽입
+      # 7. Dockerrun.aws.json 파일에 태그 삽입
       - name: Generate Dockerrun.aws.json
         run: |
           sed -i "s|<TAG>|${{ steps.image.outputs.TAG }}|g" Dockerrun.aws.json
-          # 이제 Dockerrun.aws.json 파일은 고유한 이미지 태그를 가리킴
           
-      # 7. 배포용 .zip 파일 생성
+      # 8. 배포용 ZIP 생성
       - name: Create deployment package
         run: zip -r deploy.zip Dockerrun.aws.json
 
-      # 8. Elastic Beanstalk에 자동 배포
+      # 9. Elastic Beanstalk에 자동 배포
       - name: Deploy to Elastic Beanstalk
         uses: einaregilsson/beanstalk-deploy@v21
         with:
@@ -73,5 +69,5 @@ jobs:
           region: ${{ env.AWS_REGION }}
           application_name: ${{ env.EB_APPLICATION_NAME }}
           environment_name: ${{ env.EB_ENVIRONMENT_NAME }}
-          version_label: v-${{ steps.image.outputs.TAG }} # 고유한 버전 레이블
-          deployment_package: deploy.zip # 7단계에서 만든 .zip 파일
+          version_label: v-${{ github.run_id }}   # ✅ 매 실행마다 고유한 버전
+          deployment_package: deploy.zip
