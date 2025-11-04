@@ -71,3 +71,12 @@ jobs:
           environment_name: ${{ env.EB_ENVIRONMENT_NAME }}
           version_label: v-${{ github.run_id }}   # ✅ 매 실행마다 고유한 버전
           deployment_package: deploy.zip
+          wait_for_deployment: true
+      
+      # 10. 배포 전 ZIP 검증
+      - name: Verify deployment package
+        run: |
+          if [ ! -f deploy.zip ]; then
+            echo "❌ deploy.zip not found!"
+            exit 1
+          fi
