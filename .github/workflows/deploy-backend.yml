@@ -1,35 +1,30 @@
 # 워크플로우 이름
-name: Deploy Backend to AWS ECR
+name: Deploy Backend to AWS ECR and Elastic Beanstalk
 
-# 1. 워크플로우 트리거 (Trigger)
-# 'main' 브랜치에 'push' 이벤트가 발생할 때만 이 워크플로우를 실행합니다.
+# 1. 트리거 (동일)
 on:
   push:
     branches: [ "main" ]
 
-# 2. 환경 변수 설정
-# 워크플로우 전체에서 사용할 변수를 정의합니다.
+# 2. 환경 변수 (동일)
 env:
-  # ECR 리포지토리를 생성한 AWS 리전 (GitHub Secret에서 가져옴)
   AWS_REGION: ${{ secrets.AWS_REGION }}
-
-  # ECR 리포지토리 이름 (ECR 생성 시 사용한 이름)
   ECR_REPOSITORY: insk-backend
+  # [ ⭐️ 1. 추가 ⭐️ ] EB 애플리케이션 및 환경 이름
+  EB_APPLICATION_NAME: insk-backend-app 
+  EB_ENVIRONMENT_NAME: Insk-env
 
-# 3. 실행할 작업 (Jobs) 정의
+# 3. 작업 (Jobs)
 jobs:
-  # 'build-and-push'라는 이름의 작업 정의
   build-and-push:
-    runs-on: ubuntu-latest # 이 작업은 Ubuntu 최신 버전 환경에서 실행됩니다.
-
-    # 작업 단계 (Steps)
+    runs-on: ubuntu-latest
+    
     steps:
-      # 1단계: 소스 코드 체크아웃
+      # 1. 소스 코드 체크아웃 (동일)
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2단계: AWS 자격 증명 설정 (GitHub Secrets 사용)
-      # GitHub Actions가 AWS에 로그인하도록 합니다.
+      # 2. AWS 자격 증명 (동일)
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -37,21 +32,46 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      # 3단계: Amazon ECR 로그인
-      # AWS ECR에 Docker 로그인을 수행합니다.
+      # 3. Amazon ECR 로그인 (동일)
       - name: Log in to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # 4단계: Docker 이미지 빌드 및 태그 지정
-      # 'login-ecr' 단계에서 얻은 ECR 주소와 'latest' 태그를 사용하여 Docker 이미지를 빌드합니다.
-      - name: Build and tag Docker image
-        id: build-image
-        run: |
-          docker build -t ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest -f backend/Dockerfile .
+      # [ ⭐️ 2. 수정 ⭐️ ] :latest 대신 고유한 커밋 ID로 이미지 태그 지정
+      - name: Set image tag (Git commit SHA)
+        id: image
+        run: echo "TAG=${{ github.sha }}" >> $GITHUB_OUTPUT
 
-      # 5단계: Docker 이미지를 ECR로 푸시.
-      # 방금 빌드한 이미지를 AWS ECR 리포지토리로 업로드합니다.
+      # 4. Docker 이미지 빌드 및 태그 지정 (수정됨)
+      - name: Build and tag Docker image
+        run: |
+          docker build -t ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.image.outputs.TAG }} -f backend/Dockerfile .
+          
+      # 5. Docker 이미지를 ECR로 푸시 (수정됨)
       - name: Push Docker image to Amazon ECR
         run: |
-          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.image.outputs.TAG }}
+
+      # --- [ ⭐️⭐️⭐️ 3. CD 단계 (신규 추가) ⭐️⭐️⭐️ ] ---
+      
+      # 6. Dockerrun.aws.json 파일에 고유 태그(<TAG>) 삽입
+      - name: Generate Dockerrun.aws.json
+        run: |
+          sed -i "s|<TAG>|${{ steps.image.outputs.TAG }}|g" Dockerrun.aws.json
+          # 이제 Dockerrun.aws.json 파일은 고유한 이미지 태그를 가리킴
+          
+      # 7. 배포용 .zip 파일 생성
+      - name: Create deployment package
+        run: zip -r deploy.zip Dockerrun.aws.json
+
+      # 8. Elastic Beanstalk에 자동 배포
+      - name: Deploy to Elastic Beanstalk
+        uses: einaregilsson/beanstalk-deploy@v21
+        with:
+          aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          region: ${{ env.AWS_REGION }}
+          application_name: ${{ env.EB_APPLICATION_NAME }}
+          environment_name: ${{ env.EB_ENVIRONMENT_NAME }}
+          version_label: v-${{ steps.image.outputs.TAG }} # 고유한 버전 레이블
+          deployment_package: deploy.zip # 7단계에서 만든 .zip 파일
