@@ -31,26 +31,21 @@ public class ArticleDto {
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
         private LocalDateTime publishedAt;
 
-        // (from 메소드는 이전과 동일)
         public static Response from(Article article, ArticleAnalysis analysis) {
-
-            // 분석 결과가 아직 없는 경우 (analysis가 null일 때)
             if (analysis == null) {
                 return Response.builder()
                         .articleId(article.getArticleId())
                         .title(article.getTitle())
                         .summary("분석 중입니다...")
-                        .category("분류 중...") // Article에 category가 없으므로
+                        .category("분류 중...")
                         .publishedAt(article.getPublishedAt())
                         .build();
             }
-
-            // 분석 결과가 있는 경우 (기존 로직)
             return Response.builder()
                     .articleId(article.getArticleId())
                     .title(article.getTitle())
-                    .summary(analysis.getSummary()) // 분석 테이블의 요약 사용
-                    .category(analysis.getCategory()) // ArticleAnalysis의 카테고리 사용
+                    .summary(analysis.getSummary())
+                    .category(analysis.getCategory())
                     .publishedAt(article.getPublishedAt())
                     .build();
         }
@@ -77,7 +72,6 @@ public class ArticleDto {
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
         private LocalDateTime publishedAt;
 
-        // (from 메소드는 이전과 동일)
         public static DetailResponse from(Article article, ArticleAnalysis analysis) {
             return DetailResponse.builder()
                     .articleId(article.getArticleId())
