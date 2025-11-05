@@ -58,6 +58,13 @@ jobs:
         run: |
           aws s3 cp deploy.zip s3://${{ env.S3_BUCKET }}/${{ env.EB_APPLICATION_NAME }}/v-${{ github.run_id }}.zip
 
+      # 🔹 Step 2.5: EB 환경 변수 자동 설정 (SERVER_PORT=8080)
+      - name: Ensure EB environment variables (SERVER_PORT)
+        run: |
+          aws elasticbeanstalk update-environment \
+            --environment-name "${{ env.EB_ENVIRONMENT_NAME }}" \
+            --option-settings Namespace=aws:elasticbeanstalk:application:environment,OptionName=SERVER_PORT,Value=8080
+
       # ✅ Step 2: EB에 Application Version 등록
       - name: Create new Elastic Beanstalk Application Version
         run: |
