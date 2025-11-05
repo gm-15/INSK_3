@@ -7,9 +7,9 @@ on:
 env:
   AWS_REGION: ap-northeast-2
   ECR_REPOSITORY: insk-backend
-  EB_APPLICATION_NAME: insk               # ✅ 실제 EB 애플리케이션 이름
+  EB_APPLICATION_NAME: insk
   EB_ENVIRONMENT_NAME: Insk-env
-  S3_BUCKET: elasticbeanstalk-ap-northeast-2-587403181027  # ✅ EB 기본 S3 버킷
+  S3_BUCKET: elasticbeanstalk-ap-northeast-2-587403181027
 
 jobs:
   build-and-deploy:
@@ -53,12 +53,13 @@ jobs:
             exit 1
           fi
 
-      # ✅ Step 1: S3에 ZIP 업로드
+      # ✅ Step 1: S3 업로드
       - name: Upload deploy.zip to S3
         run: |
-          aws s3 cp deploy.zip s3://${{ env.S3_BUCKET }}/${{ env.EB_APPLICATION_NAME }}/v-${{ github.run_id }}.zip
+          VERSION="v-${{ github.sha }}"
+          aws s3 cp deploy.zip s3://${{ env.S3_BUCKET }}/${{ env.EB_APPLICATION_NAME }}/${VERSION}.zip
 
-      # 🔹 Step 2.5: EB 환경 변수 자동 설정 (SERVER_PORT=8080)
+      # ✅ Step 2: EB 환경 변수 자동 세팅 (SERVER_PORT)
       - name: Ensure EB environment variables (SERVER_PORT)
         run: |
           echo '[
@@ -71,21 +72,36 @@ jobs:
 
           aws elasticbeanstalk update-environment \
             --environment-name "${{ env.EB_ENVIRONMENT_NAME }}" \
-            --option-settings file://options.json
+            --option-settings file://options.json || true
 
-      # ✅ Step 2: EB에 Application Version 등록
+      # ✅ Step 3: EB Application Version 생성 (중복 검사 포함)
       - name: Create new Elastic Beanstalk Application Version
         run: |
-          aws elasticbeanstalk create-application-version \
+          VERSION="v-${{ github.sha }}"
+          ZIP_KEY="${{ env.EB_APPLICATION_NAME }}/${VERSION}.zip"
+
+          echo "🔍 Checking if version $VERSION exists..."
+          EXISTS=$(aws elasticbeanstalk describe-application-versions \
             --application-name "${{ env.EB_APPLICATION_NAME }}" \
-            --version-label "v-${{ github.sha }}" \
-            --source-bundle S3Bucket="${{ env.S3_BUCKET }}",S3Key="${{ env.EB_APPLICATION_NAME }}/v-${{ github.run_id }}.zip" \
-            --region "${{ env.AWS_REGION }}"
+            --query "ApplicationVersions[?VersionLabel=='$VERSION'].VersionLabel" \
+            --output text)
 
+          if [ -z "$EXISTS" ]; then
+            echo "📦 Creating new EB version: $VERSION"
+            aws elasticbeanstalk create-application-version \
+              --application-name "${{ env.EB_APPLICATION_NAME }}" \
+              --version-label "$VERSION" \
+              --source-bundle S3Bucket="${{ env.S3_BUCKET }}",S3Key="$ZIP_KEY" \
+              --region "${{ env.AWS_REGION }}"
+          else
+            echo "⚠️ Version $VERSION already exists. Skipping creation."
+          fi
 
-      # ✅ Step 3: EB 환경 업데이트 (배포)
+      # ✅ Step 4: EB 환경 업데이트 (배포)
       - name: Deploy to Elastic Beanstalk
         run: |
+          VERSION="v-${{ github.sha }}"
+          echo "🚀 Deploying version $VERSION ..."
           aws elasticbeanstalk update-environment \
             --environment-name "${{ env.EB_ENVIRONMENT_NAME }}" \
-            --version-label "v-${{ github.run_id }}"
+            --version-label "$VERSION"
