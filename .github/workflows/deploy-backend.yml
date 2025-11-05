@@ -5,10 +5,11 @@ on:
     branches: [ "main" ]
 
 env:
-  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_REGION: ap-northeast-2
   ECR_REPOSITORY: insk-backend
-  EB_APPLICATION_NAME: insk-backend-app
+  EB_APPLICATION_NAME: insk               # ✅ 실제 EB 애플리케이션 이름
   EB_ENVIRONMENT_NAME: Insk-env
+  S3_BUCKET: elasticbeanstalk-ap-northeast-2-587403181027  # ✅ EB 기본 S3 버킷
 
 jobs:
   build-and-deploy:
@@ -52,40 +53,23 @@ jobs:
             exit 1
           fi
 
-      # 🔍 EB 기본 S3 버킷 자동 탐색
-      - name: Find EB S3 bucket
-        id: find-bucket
-        run: |
-          BUCKET=$(aws elasticbeanstalk describe-application-versions \
-            --application-name ${{ env.EB_APPLICATION_NAME }} \
-            --query "ApplicationVersions[0].SourceBundle.S3Bucket" \
-            --output text)
-
-          if [ "$BUCKET" == "None" ] || [ -z "$BUCKET" ]; then
-            echo "❌ EB 기본 S3 버킷을 찾을 수 없습니다. 콘솔에서 버킷 이름을 확인하세요."
-            exit 1
-          fi
-
-          echo "BUCKET=$BUCKET" >> $GITHUB_OUTPUT
-          echo "✅ Found bucket: $BUCKET"
-
-      # ✅ ZIP 업로드
+      # ✅ Step 1: S3에 ZIP 업로드
       - name: Upload deploy.zip to S3
         run: |
-          aws s3 cp deploy.zip s3://${{ steps.find-bucket.outputs.BUCKET }}/deploy-${{ github.run_id }}.zip
+          aws s3 cp deploy.zip s3://${{ env.S3_BUCKET }}/${{ env.EB_APPLICATION_NAME }}/v-${{ github.run_id }}.zip
 
-      # ✅ EB 버전 생성
-      - name: Create EB Application Version
+      # ✅ Step 2: EB에 Application Version 등록
+      - name: Create new Elastic Beanstalk Application Version
         run: |
           aws elasticbeanstalk create-application-version \
-            --application-name ${{ env.EB_APPLICATION_NAME }} \
-            --version-label v-${{ github.run_id }} \
-            --source-bundle S3Bucket=${{ steps.find-bucket.outputs.BUCKET }},S3Key=deploy-${{ github.run_id }}.zip \
-            --region ${{ env.AWS_REGION }}
+            --application-name "${{ env.EB_APPLICATION_NAME }}" \
+            --version-label "v-${{ github.run_id }}" \
+            --source-bundle S3Bucket="${{ env.S3_BUCKET }}",S3Key="${{ env.EB_APPLICATION_NAME }}/v-${{ github.run_id }}.zip" \
+            --region "${{ env.AWS_REGION }}"
 
-      # ✅ EB 배포
-      - name: Update EB Environment
+      # ✅ Step 3: EB 환경 업데이트 (배포)
+      - name: Deploy to Elastic Beanstalk
         run: |
           aws elasticbeanstalk update-environment \
-            --environment-name ${{ env.EB_ENVIRONMENT_NAME }} \
-            --version-label v-${{ github.run_id }}
+            --environment-name "${{ env.EB_ENVIRONMENT_NAME }}" \
+            --version-label "v-${{ github.run_id }}"
