@@ -8,7 +8,7 @@ env:
   AWS_REGION: ap-northeast-2
   ECR_REPOSITORY: insk-backend
   EB_APPLICATION_NAME: insk
-  EB_ENVIRONMENT_NAME: Insk-env
+  EB_ENVIRONMENT_NAME: INSK-V302-env     # ✅ 변경된 Elastic Beanstalk 환경 이름
   S3_BUCKET: elasticbeanstalk-ap-northeast-2-587403181027
 
 jobs:
