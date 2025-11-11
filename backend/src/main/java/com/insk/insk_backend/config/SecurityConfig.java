@@ -12,10 +12,18 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+// ✅ CORS 관련 import
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -39,6 +47,9 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                // ✅ CORS 활성화 (아래 corsConfigurationSource() Bean과 연동)
+                .cors(Customizer.withDefaults())
+
                 // 1. CSRF 보호 비활성화 (JWT 토큰 사용 시 불필요)
                 .csrf(AbstractHttpConfigurer::disable)
 
@@ -51,10 +62,10 @@ public class SecurityConfig {
                 // 4. 세션 정책: STATELESS (세션을 사용하지 않음)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-                // 5. [⭐️⭐️⭐️ 핵심 수정 ⭐️⭐️⭐️] 경로별 접근 권한 설정
+                // 5. 경로별 접근 권한 설정
                 .authorizeHttpRequests(auth -> auth
 
-                        // [수정] 로그인 API 및 기본 /error 경로는 모두 허용
+                        // 로그인 API 및 기본 /error 경로는 모두 허용
                         .requestMatchers("/api/v1/auth/login", "/error").permitAll()
 
                         // 회원가입 API 모두 허용
@@ -71,11 +82,36 @@ public class SecurityConfig {
                 )
 
                 // 6. JWT 인증 필터 추가
-                // Spring Security의 기본 로그인 필터(UsernamePasswordAuthenticationFilter) 전에
-                // 우리가 만든 JwtAuthenticationFilter를 먼저 실행하도록 설정
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider),
                         UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    // ✅ 전역 CORS 설정 Bean
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        // 프론트엔드 Origin 목록
+        configuration.setAllowedOrigins(List.of(
+                "http://localhost:3000" // 로컬 개발 환경
+                // 나중에 배포된 프론트 주소도 여기 추가하면 됨
+                // 예: "https://insk-frontend.vercel.app"
+        ));
+
+        // 허용할 HTTP 메서드
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+
+        // 허용할 헤더
+        configuration.setAllowedHeaders(List.of("*"));
+
+        // 인증 정보(쿠키, Authorization 헤더 등) 허용
+        configuration.setAllowCredentials(true);
+
+        // 모든 API 경로에 위 설정 적용
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 }
